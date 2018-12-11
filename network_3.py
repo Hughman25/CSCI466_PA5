@@ -220,7 +220,7 @@ class Router:
                     if int(prio) != 1:
                         self.intf_L[i].put(fr.to_byte_S(), 'in', True)
                     else:
-                        print(self.name + " processing higher priority jobs" + " || " + prio)
+                        print(self.name + " processing higher priority jobs")
                         break
                 temp += 1
             if flag:
