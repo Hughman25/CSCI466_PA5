@@ -202,13 +202,32 @@ class Router:
                 if int(integer) == 1:
                     count += 1
         print("\n" + self.name + ": has total of: " + str(total) + " packets in queue and: " + str(count) + " with high priority\n")
+
         for i in range(len(self.intf_L)):
             fr_S = None #make sure we are starting the loop with a blank frame
-            fr_S = self.intf_L[i].get('in') #get frame from interface i
-            if fr_S is None:
-                continue # no frame to process yet
+            fr = None
+            temp = 0
+            flag = False
+            size = self.intf_L[i].in_queue.qsize()
+            while temp <= size:
+                fr_S = self.intf_L[i].get('in') #get frame from interface i
+                if fr_S is None:
+                    flag = True
+                    break # no frame to process yet
+                elif temp < size:
+                    fr = LinkFrame.from_byte_S(fr_S)
+                    prio = fr.data_S[-1]
+                    if int(prio) != 1:
+                        self.intf_L[i].put(fr.to_byte_S(), 'in', True)
+                    else:
+                        print(self.name + " processing higher priority jobs" + " || " + prio)
+                        break
+                temp += 1
+            if flag:
+                continue
+                        
             #decapsulate the packet
-            fr = LinkFrame.from_byte_S(fr_S)
+            #fr = LinkFrame.from_byte_S(fr_S)
             pkt_S = fr.data_S
             #process the packet as network, or MPLS
             if fr.type_S == "Network":
@@ -245,7 +264,7 @@ class Router:
         outInterface = self.frwd_tbl_D[(pkt.dst, i)][1]
         fr = LinkFrame('Network', (pkt.to_byte_S() + pkt.prio))
         self.intf_L[outInterface].put(fr.to_byte_S(), 'out', True)
-        print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, 1))
+        print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, outInterface))
                     
 
 
@@ -263,12 +282,12 @@ class Router:
                 if self.decap_tbl_D[i] == m_fr.dst:
                     fr = LinkFrame('Network', m_fr.data_S)
                     #self.intf_L[outInterface].put(fr.to_byte_S(), 'out', True)
-                    print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, 1))
+                    print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, outInterface))
                     
             else:
                 fr = LinkFrame("MPLS", m_fr.to_byte_S())
             self.intf_L[outInterface].put(fr.to_byte_S(), 'out', 'True')
-            print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, 1))
+            print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, outInterface))
         except queue.Full:
             print('%s: frame "%s" lost on interface %d' % (self, m_fr, i))
             pass

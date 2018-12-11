@@ -17,7 +17,7 @@ if __name__ == '__main__':
     object_L.append(host_1)
     host_2 = Host('H2')
     object_L.append(host_2)
-    host_3 = Host('H2')
+    host_3 = Host('H3')
     object_L.append(host_3)
     
     #create routers and routing tables for connected clients (subnets)
@@ -91,7 +91,7 @@ if __name__ == '__main__':
         t.start()
     
     #create some send events    
-    for i in range(5):
+    for i in range(4):
         priority = i%2
         host_1.udt_send('H3', 'FIRST_%d_FROM_H1' % i, priority)
         host_2.udt_send('H3', 'SECOND%d_FROM_H2' % i, priority)
