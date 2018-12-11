@@ -14,6 +14,7 @@ class Interface:
         self.out_queue = queue.Queue(maxsize);
         self.capacity = capacity #serialization rate
         self.next_avail_time = 0 #the next time the interface can transmit a packet
+        self.total = []
     
     ##get packet from the queue interface
     # @param in_or_out - use 'in' or 'out' interface
@@ -21,15 +22,19 @@ class Interface:
         try:
             if in_or_out == 'in':
                 pkt_S = self.in_queue.get(False)
+                self.total.remove(pkt_S[-1])
                 # if pkt_S is not None:
                 #     print('getting packet from the IN queue')
                 return pkt_S
             else:
                 pkt_S = self.out_queue.get(False)
+                self.total.remove(pkt_S[-1])
                 # if pkt_S is not None:
                 #     print('getting packet from the OUT queue')
                 return pkt_S
         except queue.Empty:
+            return None
+        except IndexError:
             return None
         
     ##put the packet into the interface queue
@@ -37,6 +42,7 @@ class Interface:
     # @param in_or_out - use 'in' or 'out' interface
     # @param block - if True, block until room in queue, if False may throw queue.Full exception
     def put(self, pkt, in_or_out, block=False):
+        self.total.append(pkt[-1])
         if in_or_out == 'out':
             # print('putting packet in the OUT queue')
             self.out_queue.put(pkt, block)
@@ -97,8 +103,8 @@ class NetworkPacket:
     ## convert packet to a byte string for transmission over links
     def to_byte_S(self):
         byte_S = str(self.dst).zfill(self.dst_S_length)
-        byte_S += str(self.prio)
         byte_S += self.data_S
+        byte_S += str(self.prio)
         return byte_S
     
     ## extract a packet object from a byte string
@@ -106,8 +112,8 @@ class NetworkPacket:
     @classmethod
     def from_byte_S(self, byte_S):
         dst = byte_S[0 : NetworkPacket.dst_S_length].strip('0')
-        prio = byte_S[NetworkPacket.dst_S_length: NetworkPacket.dst_S_length + 1]
-        data_S = byte_S[NetworkPacket.dst_S_length + 1 : ]        
+        data_S = byte_S[NetworkPacket.dst_S_length : -1]
+        prio = byte_S[-1]
         return self(dst, data_S, prio)
     
 
@@ -188,12 +194,14 @@ class Router:
     ## look through the content of incoming interfaces and 
     # process data and control packets
     def process_queues(self):
+        count = 0
+        total = 0
         for intf in self.intf_L:
-            for pkt in intf.out_queue:
-                print("MAINTEST: " + pkt)
-            for pkt in intf.in_queue:
-                print("OK: " + pkt)
-        
+            for integer in intf.total:
+                total += 1
+                if int(integer) == 1:
+                    count += 1
+        print("\n" + self.name + ": has total of: " + str(total) + " packets in queue and: " + str(count) + " with high priority\n")
         for i in range(len(self.intf_L)):
             fr_S = None #make sure we are starting the loop with a blank frame
             fr_S = self.intf_L[i].get('in') #get frame from interface i
@@ -235,7 +243,7 @@ class Router:
                 self.process_MPLS_frame(m_fr, i)
                 return
         outInterface = self.frwd_tbl_D[(pkt.dst, i)][1]
-        fr = LinkFrame('Network', (pkt.prio + pkt.to_byte_S()))
+        fr = LinkFrame('Network', (pkt.to_byte_S() + pkt.prio))
         self.intf_L[outInterface].put(fr.to_byte_S(), 'out', True)
         print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, 1))
                     
