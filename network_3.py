@@ -1,6 +1,6 @@
 import queue
 import threading
-from link_2 import LinkFrame
+from link_3 import LinkFrame
 
 
 ## wrapper class for a queue of packets
@@ -8,6 +8,8 @@ class Interface:
     ## @param maxsize - the maximum size of the queue storing packets
     #  @param capacity - the capacity of the link in bps
     def __init__(self, maxsize=0, capacity=500):
+        self.prio = 0
+        self.total = 0
         self.in_queue = queue.Queue(maxsize);
         self.out_queue = queue.Queue(maxsize);
         self.capacity = capacity #serialization rate
@@ -47,7 +49,7 @@ class Interface:
 class MPLSF:
     dst_S_length = 5
 
-    def __init__(self, dst, data_S):
+    def __init__(self, dst, data_S, prio=0):
         self.dst = dst
         self.data_S = str(data_S)
 
@@ -85,6 +87,7 @@ class NetworkPacket:
     def __init__(self, dst, data_S, priority=0):
         self.dst = dst
         self.data_S = data_S
+        self.prio = priority
         #TODO: add priority to the packet class
         
     ## called when printing the object
@@ -94,6 +97,7 @@ class NetworkPacket:
     ## convert packet to a byte string for transmission over links
     def to_byte_S(self):
         byte_S = str(self.dst).zfill(self.dst_S_length)
+        byte_S += str(self.prio)
         byte_S += self.data_S
         return byte_S
     
@@ -102,8 +106,9 @@ class NetworkPacket:
     @classmethod
     def from_byte_S(self, byte_S):
         dst = byte_S[0 : NetworkPacket.dst_S_length].strip('0')
-        data_S = byte_S[NetworkPacket.dst_S_length : ]        
-        return self(dst, data_S)
+        prio = byte_S[NetworkPacket.dst_S_length: NetworkPacket.dst_S_length + 1]
+        data_S = byte_S[NetworkPacket.dst_S_length + 1 : ]        
+        return self(dst, data_S, prio)
     
 
 ## Implements a network host for receiving and transmitting data
@@ -124,7 +129,7 @@ class Host:
     # @param data_S: data being transmitted to the network layer
     # @param priority: packet priority
     def udt_send(self, dst, data_S, priority=0):
-        pkt = NetworkPacket(dst, data_S)
+        pkt = NetworkPacket(dst, data_S, priority)
         print('%s: sending packet "%s" with priority %d' % (self, pkt, priority))
         #encapsulate network packet in a link frame (usually would be done by the OS)
         fr = LinkFrame('Network', pkt.to_byte_S())
@@ -183,6 +188,12 @@ class Router:
     ## look through the content of incoming interfaces and 
     # process data and control packets
     def process_queues(self):
+        for intf in self.intf_L:
+            for pkt in intf.out_queue:
+                print("MAINTEST: " + pkt)
+            for pkt in intf.in_queue:
+                print("OK: " + pkt)
+        
         for i in range(len(self.intf_L)):
             fr_S = None #make sure we are starting the loop with a blank frame
             fr_S = self.intf_L[i].get('in') #get frame from interface i
@@ -224,7 +235,7 @@ class Router:
                 self.process_MPLS_frame(m_fr, i)
                 return
         outInterface = self.frwd_tbl_D[(pkt.dst, i)][1]
-        fr = LinkFrame('Network', pkt.data_S)
+        fr = LinkFrame('Network', (pkt.prio + pkt.to_byte_S()))
         self.intf_L[outInterface].put(fr.to_byte_S(), 'out', True)
         print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, 1))
                     
@@ -244,12 +255,12 @@ class Router:
                 if self.decap_tbl_D[i] == m_fr.dst:
                     fr = LinkFrame('Network', m_fr.data_S)
                     #self.intf_L[outInterface].put(fr.to_byte_S(), 'out', True)
-                    print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, outInterface))
+                    print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, 1))
                     
             else:
                 fr = LinkFrame("MPLS", m_fr.to_byte_S())
             self.intf_L[outInterface].put(fr.to_byte_S(), 'out', 'True')
-            print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, outInterface))
+            print('%s: forwarding frame "%s" from interface %d to %d' % (self, fr, i, 1))
         except queue.Full:
             print('%s: frame "%s" lost on interface %d' % (self, m_fr, i))
             pass

@@ -1,5 +1,5 @@
-from network_2 import Router, Host
-from link_2 import Link, LinkLayer
+from network_3 import Router, Host
+from link_3 import Link, LinkLayer
 import threading
 from time import sleep
 import sys
@@ -17,7 +17,7 @@ if __name__ == '__main__':
     object_L.append(host_1)
     host_2 = Host('H2')
     object_L.append(host_2)
-    host_3 = Host('H3')
+    host_3 = Host('H2')
     object_L.append(host_3)
     
     #create routers and routing tables for connected clients (subnets)
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     frwd_tbl_D = {("H1", 0) : ("H1", 1), ("H2", 0) : ("H2", 2), ("H3", 1): ("H3", 0), ("H3", 2): ("H3", 0)}     
     decap_tbl_D = {1: "H3", 2: "H3"}    
     router_d = Router(name='RD', 
-                              intf_capacity_L=[500,500,500],
+                              intf_capacity_L=[100,500,500],
                               encap_tbl_D = encap_tbl_D,
                               frwd_tbl_D = frwd_tbl_D,
                               decap_tbl_D = decap_tbl_D,
@@ -91,13 +91,12 @@ if __name__ == '__main__':
         t.start()
     
     #create some send events    
-    for i in range(1):
+    for i in range(5):
         priority = i%2
-        host_1.udt_send('H2', 'FIRST_%d_FROM_H1' % i, priority)
+        host_1.udt_send('H3', 'FIRST_%d_FROM_H1' % i, priority)
         host_2.udt_send('H3', 'SECOND%d_FROM_H2' % i, priority)
-        host_1.udt_send('H3', 'THIRD%d_FROM_H1' % i, priority)
         host_3.udt_send('H1', 'FOURTH%d_FROM_H3' % i, priority)
-        host_3.udt_send('H2', 'FIFTH%d_FROM_H3' % i, priority)
+        host_3.udt_send('H2', 'FOURTH%d_FROM_H3' % i, priority)
         
     #give the network sufficient time to transfer all packets before quitting
     sleep(simulation_time)
